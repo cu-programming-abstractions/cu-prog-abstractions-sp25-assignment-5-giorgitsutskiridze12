@@ -2,39 +2,78 @@
 using namespace std;
 
 LinearProbingHashTable::LinearProbingHashTable(HashFunction<string> hashFn) {
-    /* TODO: Delete this comment and the next line, then implement this function. */
-    (void) hashFn;
+    this->hashFn = hashFn;
+    this->numSlots = hashFn.numSlots();
+    this->elems = new Slot[this->numSlots];
+
+    for(int i = 0; i < this->numSlots; i++) {
+        elems[i].type = SlotType::EMPTY;
+    }
+    this->count = 0;
 }
 
 LinearProbingHashTable::~LinearProbingHashTable() {
-    /* TODO: Delete this comment, then implement this function. */
+    delete[] this->elems;
 }
 
 int LinearProbingHashTable::size() const {
-    /* TODO: Delete this comment and the next lines, then implement this function. */
-    return -1;
+    return count;
 }
 
 bool LinearProbingHashTable::isEmpty() const {
-    /* TODO: Delete this comment and the next lines, then implement this function. */
-    return false;
+    return size() == 0;
 }
 
 bool LinearProbingHashTable::insert(const string& elem) {
-    /* TODO: Delete this comment and the next lines, then implement this function. */
-    (void) elem;
+    if(contains(elem)) {
+        return false;
+    }
+
+    int hashValue = hashFn(elem);
+
+    for(int i = 0; i < numSlots; i++) {
+        Slot* slot = &elems[(hashValue + i) % numSlots];
+        if(slot->type == SlotType::EMPTY || slot->type == SlotType::TOMBSTONE) {
+            slot->type = SlotType::FILLED;
+            slot->value = elem;
+            ++count;
+            return true;
+        } else if(slot->type == SlotType::FILLED and slot->value == elem) {
+            return false;
+        }
+    }
     return false;
 }
 
 bool LinearProbingHashTable::contains(const string& elem) const {
-    /* TODO: Delete this comment and the next lines, then implement this function. */
-    (void) elem;
+    int hashValue = hashFn(elem);
+
+    for(int i = 0; i < numSlots; i++) {
+        Slot* slot = &elems[(hashValue + i) % numSlots];
+        if(slot->type == SlotType::EMPTY) {
+            return false;
+        } else if(slot->type == SlotType::FILLED and slot->value == elem) {
+            return true;
+        }
+    }
+
     return false;
 }
 
 bool LinearProbingHashTable::remove(const string& elem) {
-    /* TODO: Delete this comment and the next lines, then implement this function. */
-    (void) elem;
+    int hashValue = hashFn(elem);
+
+    for(int i = 0; i < numSlots; i++) {
+        Slot* slot = &elems[(hashValue + i) % numSlots];
+        if(slot->type == SlotType::EMPTY) {
+            return false;
+        } else if(slot->type == SlotType::FILLED and slot->value == elem) {
+            slot->type = SlotType::TOMBSTONE;
+            --count;
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -776,43 +815,43 @@ PROVIDED_TEST("Stress Test: Inserts/searches/deletes work in expected time O(1) 
 
 #include "filelib.h"
 PROVIDED_TEST("Stress test: Core functions do not cause stack overflows (should take at most 15 seconds)") {
-    SHOW_ERROR("Stress test is disabled by default. To run it, comment out line " + to_string(__LINE__) + " of " + getTail(__FILE__) + ".");
+    // SHOW_ERROR("Stress test is disabled by default. To run it, comment out line " + to_string(__LINE__) + " of " + getTail(__FILE__) + ".");
     const int kTableSize = 1000000;
 
     EXPECT_COMPLETES_IN(15,
-        /* Create a table with 1,000,000 slots, then fill in the first 999,999 of them. */
-        Timing::Timer timer;
-        timer.start();
-        LinearProbingHashTable table(Hash::identity(kTableSize));
-        for (int i = 0; i < kTableSize - 1; i++) {
-            EXPECT(table.insert(to_string(i)));
-        }
+                        /* Create a table with 1,000,000 slots, then fill in the first 999,999 of them. */
+                        Timing::Timer timer;
+                        timer.start();
+                        LinearProbingHashTable table(Hash::identity(kTableSize));
+                        for (int i = 0; i < kTableSize - 1; i++) {
+                            EXPECT(table.insert(to_string(i)));
+                        }
 
-        /* Validate table. */
-        EXPECT_EQUAL(table.size(), kTableSize - 1);
-        for (int i = 0; i < kTableSize - 1; i++) {
-            EXPECT_EQUAL(table.elems[i], { to_string(i), LinearProbingHashTable::SlotType::FILLED });
-        }
+                        /* Validate table. */
+                        EXPECT_EQUAL(table.size(), kTableSize - 1);
+                        for (int i = 0; i < kTableSize - 1; i++) {
+                            EXPECT_EQUAL(table.elems[i], { to_string(i), LinearProbingHashTable::SlotType::FILLED });
+                        }
 
-        /* Insert the value 1,000,000. This wants to go into slot zero, but that's filled, so it will
+                        /* Insert the value 1,000,000. This wants to go into slot zero, but that's filled, so it will
          * scoot on over to the far end of the table to find the first free slot.
          */
-        EXPECT(table.insert(to_string(kTableSize)));
-        EXPECT_EQUAL(table.size(), kTableSize);
-        EXPECT_EQUAL(table.elems[kTableSize - 1], { to_string(kTableSize), LinearProbingHashTable::SlotType::FILLED });
+                        EXPECT(table.insert(to_string(kTableSize)));
+                        EXPECT_EQUAL(table.size(), kTableSize);
+                        EXPECT_EQUAL(table.elems[kTableSize - 1], { to_string(kTableSize), LinearProbingHashTable::SlotType::FILLED });
 
-        /* Check if 1000000 is there, which requires scanning the whole table. */
-        EXPECT(table.contains(to_string(kTableSize)));
+                        /* Check if 1000000 is there, which requires scanning the whole table. */
+                        EXPECT(table.contains(to_string(kTableSize)));
 
-        /* Remove 1000000, which requires scanning the whole table. */
-        EXPECT(table.remove(to_string(kTableSize)));
-        EXPECT_EQUAL(table.elems[kTableSize - 1].type, LinearProbingHashTable::SlotType::TOMBSTONE);
-    );
+                        /* Remove 1000000, which requires scanning the whole table. */
+                        EXPECT(table.remove(to_string(kTableSize)));
+                        EXPECT_EQUAL(table.elems[kTableSize - 1].type, LinearProbingHashTable::SlotType::TOMBSTONE);
+                        );
 }
 
 #include <fstream>
 PROVIDED_TEST("Stress Test: Handles large workflows with little free space (should take at most fifteen seconds)") {
-    SHOW_ERROR("Stress test is disabled by default. To run it, comment out line " + to_string(__LINE__) + " of " + getTail(__FILE__) + ".");
+    // SHOW_ERROR("Stress test is disabled by default. To run it, comment out line " + to_string(__LINE__) + " of " + getTail(__FILE__) + ".");
 
     Vector<string> english;
     ifstream input("res/EnglishWords.txt");
@@ -822,29 +861,29 @@ PROVIDED_TEST("Stress Test: Handles large workflows with little free space (shou
     }
 
     EXPECT_COMPLETES_IN(15,
-        /* Load factor 0.97. */
-        LinearProbingHashTable table(Hash::consistentRandom(english.size() / 0.97));
+                        /* Load factor 0.97. */
+                        LinearProbingHashTable table(Hash::consistentRandom(english.size() / 0.97));
 
-        /* Insert everything. */
-        for (const string& word: english) {
-            EXPECT(table.insert(word));
-        }
-        EXPECT_EQUAL(table.size(), english.size());
+                        /* Insert everything. */
+                        for (const string& word: english) {
+                            EXPECT(table.insert(word));
+                        }
+                        EXPECT_EQUAL(table.size(), english.size());
 
-        /* Make sure everything is there, and that the upper-case versions aren't. */
-        for (const string& word: english) {
-            EXPECT(table.contains(word));
-            EXPECT(!table.contains(toUpperCase(word)));
-        }
+                        /* Make sure everything is there, and that the upper-case versions aren't. */
+                        for (const string& word: english) {
+                            EXPECT(table.contains(word));
+                            EXPECT(!table.contains(toUpperCase(word)));
+                        }
 
-        /* Remove everything, plus some things not there.. */
-        for (const string& word: english) {
-            EXPECT(table.remove(word));
-            EXPECT(!table.contains(word));
-            EXPECT(!table.remove(toUpperCase(word)));
-        }
+                        /* Remove everything, plus some things not there.. */
+                        for (const string& word: english) {
+                            EXPECT(table.remove(word));
+                            EXPECT(!table.contains(word));
+                            EXPECT(!table.remove(toUpperCase(word)));
+                        }
 
-        EXPECT_EQUAL(table.size(), 0);
-        EXPECT(table.isEmpty());
-    );
+                        EXPECT_EQUAL(table.size(), 0);
+                        EXPECT(table.isEmpty());
+                        );
 }
